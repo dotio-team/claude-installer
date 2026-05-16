@@ -55,8 +55,11 @@ if not errorlevel 1 (
 )
 
 :: --- 4. Install claude-code ------------------------------------------------
-call :log "Running npm install -g @anthropic-ai/claude-code..."
-call npm install -g @anthropic-ai/claude-code >>"%LOG%" 2>&1
+:: --unsafe-perm matches the macOS side: ensures post-install scripts run so
+:: the platform-native binary actually downloads. Without it `claude` ends
+:: up on PATH but errors with "native binary not installed".
+call :log "Running npm install -g --unsafe-perm @anthropic-ai/claude-code..."
+call npm install -g --unsafe-perm @anthropic-ai/claude-code >>"%LOG%" 2>&1
 if errorlevel 1 (
   call :log "ERROR: npm install failed"
   call :err "Claude Code 설치에 실패했습니다. 인터넷 연결과 회사 프록시 설정을 확인해주세요."
@@ -67,10 +70,18 @@ if errorlevel 1 (
 where claude >nul 2>&1
 if errorlevel 1 (
   call :log "WARN: claude command not on PATH yet — needs a new terminal"
+  goto :smoke_done
+)
+:: Run --version and confirm it returns a real version string (not just
+:: prints "native binary not installed").
+for /f "delims=" %%v in ('claude --version 2^>^&1') do set "CLAUDE_V=%%v"
+echo !CLAUDE_V! | findstr /i /r "claude.*[0-9][0-9]*\.[0-9]" >nul
+if errorlevel 1 (
+  call :log "WARN: claude --version unexpected output: !CLAUDE_V!"
 ) else (
-  for /f "delims=" %%v in ('claude --version 2^>nul') do set "CLAUDE_V=%%v"
   call :log "smoke test passed: !CLAUDE_V!"
 )
+:smoke_done
 
 call :log "==== Postinstall finished OK ===="
 exit /b 0

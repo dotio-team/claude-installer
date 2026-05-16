@@ -102,32 +102,45 @@ if echo "$USER" | LC_ALL=C grep -q '[^a-zA-Z0-9._-]'; then
 fi
 
 # --- 4. Install claude-code -------------------------------------------------
+# Critical correctness note: when we run as root (always for .pkg install,
+# whether via the GUI Installer.app or `sudo installer -pkg`), npm needs
+# --unsafe-perm so post-install scripts inside @anthropic-ai/claude-code
+# (which fetch the platform-native binary) actually execute. Without it,
+# npm drops root before running those scripts, they can't write to the
+# install dir, and `claude` lands on PATH but errors with "claude native
+# binary not installed". We chmod 0755 the lib dir afterward so a later
+# user-mode `npm install -g` doesn't fail with EACCES.
 log "Installing @anthropic-ai/claude-code via npm..."
-# Run npm as the original user, not root, so the cache lives in their home.
-INSTALL_USER="${USER:-root}"
-if [ "$(id -u)" = "0" ] && [ -n "$INSTALL_USER" ] && [ "$INSTALL_USER" != "root" ]; then
-  # When productbuild runs us as root, $USER is still set to the GUI user.
-  # `sudo -u "$USER" npm` keeps the cache out of /var/root.
-  if ! /usr/bin/sudo -u "$INSTALL_USER" -H /bin/bash -lc 'npm install -g @anthropic-ai/claude-code' >>"$LOG" 2>&1; then
-    log "npm install (as $INSTALL_USER) failed; retrying as root"
-    if ! npm install -g @anthropic-ai/claude-code >>"$LOG" 2>&1; then
-      fail "claude-code 설치에 실패했습니다. 인터넷 연결을 확인해주세요."
-    fi
-  fi
-else
-  if ! npm install -g @anthropic-ai/claude-code >>"$LOG" 2>&1; then
-    fail "claude-code 설치에 실패했습니다."
-  fi
+if ! npm install -g --unsafe-perm @anthropic-ai/claude-code >>"$LOG" 2>&1; then
+  fail "claude-code 설치에 실패했습니다. 인터넷 연결 또는 npm 권한을 확인해주세요."
+fi
+# Best-effort: hand the global lib back to the GUI user so subsequent
+# `npm install -g` from their shell works without sudo. Failure is fine.
+GUI_USER="$(/usr/bin/stat -f '%Su' /dev/console 2>/dev/null)"
+if [ -n "$GUI_USER" ] && [ "$GUI_USER" != "root" ]; then
+  NPM_PREFIX="$(npm config get prefix 2>/dev/null || echo /usr/local)"
+  /usr/sbin/chown -R "$GUI_USER":staff "$NPM_PREFIX/lib/node_modules" 2>/dev/null || true
+  /usr/sbin/chown -R "$GUI_USER":staff "$NPM_PREFIX/bin" 2>/dev/null || true
+  log "Handed npm global dirs to user $GUI_USER"
 fi
 ok "claude-code 설치 완료"
 
 # --- 5. Smoke test ----------------------------------------------------------
+# Beyond just `which claude` — run `claude --version` and confirm the native
+# binary is actually wired up. The npm package can install successfully but
+# leave the binary missing if --unsafe-perm wasn't set (the bug we just hit).
 hash -r 2>/dev/null || true
-if command -v claude >/dev/null 2>&1; then
-  CLAUDE_V="$(claude --version 2>/dev/null | head -1)"
-  ok "Smoke test passed: $CLAUDE_V"
+if ! command -v claude >/dev/null 2>&1; then
+  log "WARN: claude command not on PATH yet; user may need a new terminal."
 else
-  log "claude command not on PATH yet; may need a fresh terminal."
+  CLAUDE_OUT="$(claude --version 2>&1)"
+  if echo "$CLAUDE_OUT" | grep -qiE 'claude.*[0-9]+\.[0-9]+'; then
+    ok "Smoke test passed: $(echo "$CLAUDE_OUT" | head -1)"
+  else
+    log "WARN: claude --version returned unexpected output: $CLAUDE_OUT"
+    log "      (The package is installed but the native binary may be missing.)"
+    # Don't `fail` — installation technically succeeded, this is a runtime warning.
+  fi
 fi
 
 # --- 6. Drop an uninstall helper -------------------------------------------

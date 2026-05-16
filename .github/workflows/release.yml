@@ -28,6 +28,32 @@ jobs:
           path: installer/macos/dist/ClaudeCode-Installer.pkg
           if-no-files-found: error
 
+  # --- macOS smoke test (clean-room install on a fresh runner) ----------
+  smoke-macos:
+    needs: build-macos
+    runs-on: macos-14
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: macos-pkg, path: . }
+      - name: Install the .pkg as root (matches user double-click)
+        run: sudo installer -pkg ClaudeCode-Installer.pkg -target /
+      - name: Verify claude is installed AND the native binary works
+        run: |
+          export PATH="/usr/local/bin:$PATH"
+          which claude
+          OUT="$(claude --version 2>&1 || true)"
+          echo "claude --version => $OUT"
+          if ! echo "$OUT" | grep -qiE 'claude.*[0-9]+\.[0-9]+'; then
+            echo "::error::native binary missing or postinstall didn't run"
+            echo "---install log---"
+            sudo cat /var/log/claude-installer.log 2>/dev/null || true
+            exit 1
+          fi
+      - name: Verify uninstaller works
+        run: |
+          /usr/local/bin/claude-uninstall
+          ! command -v claude >/dev/null 2>&1 || (echo "claude still on PATH after uninstall" && exit 1)
+
   # --- Windows .exe ------------------------------------------------------
   build-windows:
     runs-on: windows-2022
@@ -52,9 +78,35 @@ jobs:
           path: installer/windows/dist/ClaudeCode-Installer.exe
           if-no-files-found: error
 
+  # --- Windows smoke test (clean-room install) ---------------------------
+  smoke-windows:
+    needs: build-windows
+    runs-on: windows-2022
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: windows-exe, path: . }
+      - name: Install silently (matches the user's double-click + Run path)
+        shell: cmd
+        run: |
+          ClaudeCode-Installer.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG=install-trace.log
+          echo Exit code: %errorlevel%
+          if %errorlevel% neq 0 type install-trace.log
+      - name: Verify claude works after install
+        shell: cmd
+        run: |
+          set "PATH=%ProgramFiles%\nodejs;%ProgramFiles%\Git\cmd;%APPDATA%\npm;%PATH%"
+          where claude
+          claude --version > out.txt 2>&1
+          type out.txt
+          findstr /i /r "claude.*[0-9][0-9]*\.[0-9]" out.txt >nul || (
+            echo ERROR: native binary missing or postinstall didn't run
+            type "%APPDATA%\ClaudeInstaller\install.log" 2>nul
+            exit /b 1
+          )
+
   # --- Publish to GitHub Releases ----------------------------------------
   publish:
-    needs: [build-macos, build-windows]
+    needs: [smoke-macos, smoke-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
