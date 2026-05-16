@@ -134,7 +134,10 @@ if ! command -v claude >/dev/null 2>&1; then
   log "WARN: claude command not on PATH yet; user may need a new terminal."
 else
   CLAUDE_OUT="$(claude --version 2>&1)"
-  if echo "$CLAUDE_OUT" | grep -qiE 'claude.*[0-9]+\.[0-9]+'; then
+  # Real output format is "<x.y.z> (Claude Code)" — match a semver triple
+  # anywhere in the output. Catches the broken case where the binary is
+  # missing (which prints "native binary not installed" with no semver).
+  if echo "$CLAUDE_OUT" | grep -qE '[0-9]+\.[0-9]+\.[0-9]+'; then
     ok "Smoke test passed: $(echo "$CLAUDE_OUT" | head -1)"
   else
     log "WARN: claude --version returned unexpected output: $CLAUDE_OUT"

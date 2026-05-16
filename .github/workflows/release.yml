@@ -43,7 +43,7 @@ jobs:
           which claude
           OUT="$(claude --version 2>&1 || true)"
           echo "claude --version => $OUT"
-          if ! echo "$OUT" | grep -qiE 'claude.*[0-9]+\.[0-9]+'; then
+          if ! echo "$OUT" | grep -qE '[0-9]+\.[0-9]+\.[0-9]+'; then
             echo "::error::native binary missing or postinstall didn't run"
             echo "---install log---"
             sudo cat /var/log/claude-installer.log 2>/dev/null || true
@@ -98,7 +98,7 @@ jobs:
           where claude
           claude --version > out.txt 2>&1
           type out.txt
-          findstr /i /r "claude.*[0-9][0-9]*\.[0-9]" out.txt >nul || (
+          findstr /r "[0-9][0-9]*\.[0-9][0-9]*\.[0-9]" out.txt >nul || (
             echo ERROR: native binary missing or postinstall didn't run
             type "%APPDATA%\ClaudeInstaller\install.log" 2>nul
             exit /b 1

@@ -75,7 +75,7 @@ if errorlevel 1 (
 :: Run --version and confirm it returns a real version string (not just
 :: prints "native binary not installed").
 for /f "delims=" %%v in ('claude --version 2^>^&1') do set "CLAUDE_V=%%v"
-echo !CLAUDE_V! | findstr /i /r "claude.*[0-9][0-9]*\.[0-9]" >nul
+echo !CLAUDE_V! | findstr /r "[0-9][0-9]*\.[0-9][0-9]*\.[0-9]" >nul
 if errorlevel 1 (
   call :log "WARN: claude --version unexpected output: !CLAUDE_V!"
 ) else (
