@@ -1,0 +1,152 @@
+#!/bin/bash
+#
+# postinstall - runs after the .pkg payload (which is empty) is laid down.
+# Does the actual work: ensures Node.js + Git are present, then installs
+# claude-code globally via npm. Designed for non-developers, so every
+# branch logs loudly and exits with a friendly message.
+#
+# Run as root (productbuild does this automatically). The original user
+# is in $USER, but we mostly act as root — npm -g writes to /usr/local
+# which is owned by root on Intel and by the user on Apple Silicon.
+#
+set -u
+PATH="/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
+
+LOG="/var/log/claude-installer.log"
+# Mirror to user-readable spot too, since /var/log needs sudo to tail.
+USER_LOG_DIR="${HOME:-/Users/$USER}/Library/Logs/ClaudeInstaller"
+mkdir -p "$USER_LOG_DIR" 2>/dev/null
+USER_LOG="$USER_LOG_DIR/install.log"
+
+log() {
+  local msg
+  msg="$(date '+%Y-%m-%d %H:%M:%S')  $*"
+  echo "$msg" | tee -a "$LOG" "$USER_LOG" >/dev/null
+}
+
+fail() {
+  log "FAIL: $*"
+  /usr/bin/osascript -e "display dialog \"설치 중 문제가 발생했습니다.\n\n$*\n\n자세한 로그: $USER_LOG\" buttons {\"확인\"} default button 1 with icon stop with title \"Claude Code 인스톨러\"" >/dev/null 2>&1 || true
+  exit 1
+}
+
+ok() { log "OK: $*"; }
+
+log "==== Claude Code installer starting ===="
+log "macOS $(sw_vers -productVersion 2>/dev/null), arch $(uname -m), user $USER"
+
+# --- 1. Node.js -------------------------------------------------------------
+need_node=true
+if command -v node >/dev/null 2>&1; then
+  NODE_V="$(node -v 2>/dev/null | sed 's/^v//')"
+  NODE_MAJOR="${NODE_V%%.*}"
+  if [ "${NODE_MAJOR:-0}" -ge 18 ] 2>/dev/null; then
+    ok "Node.js $NODE_V detected (>= 18), skipping install"
+    need_node=false
+  else
+    log "Node.js $NODE_V is too old (need >= 18), will reinstall"
+  fi
+fi
+
+if $need_node; then
+  log "Downloading Node.js 20 LTS official .pkg..."
+  ARCH="$(uname -m)"
+  case "$ARCH" in
+    arm64) NODE_URL="https://nodejs.org/dist/v20.18.1/node-v20.18.1.pkg" ;;
+    x86_64) NODE_URL="https://nodejs.org/dist/v20.18.1/node-v20.18.1.pkg" ;;
+    *) fail "지원하지 않는 CPU 아키텍처입니다: $ARCH" ;;
+  esac
+  NODE_PKG="/tmp/claude-installer-node.pkg"
+  rm -f "$NODE_PKG"
+  if ! /usr/bin/curl -fsSL --connect-timeout 15 --retry 3 -o "$NODE_PKG" "$NODE_URL"; then
+    fail "Node.js 다운로드에 실패했습니다. 인터넷 연결을 확인해주세요."
+  fi
+  ok "Node.js 다운로드 완료 ($(du -h "$NODE_PKG" | cut -f1))"
+
+  log "Installing Node.js .pkg..."
+  if ! /usr/sbin/installer -pkg "$NODE_PKG" -target /; then
+    fail "Node.js 설치에 실패했습니다."
+  fi
+  rm -f "$NODE_PKG"
+  hash -r 2>/dev/null || true
+  if ! command -v node >/dev/null 2>&1; then
+    # Some macOS setups have /usr/local/bin not yet in PATH for this shell.
+    export PATH="/usr/local/bin:$PATH"
+  fi
+  ok "Node.js installed: $(node -v 2>/dev/null || echo unknown)"
+fi
+
+# --- 2. Git -----------------------------------------------------------------
+# Git is shipped with Xcode Command Line Tools. On a fresh Mac it's missing
+# and trying `git --version` opens a system prompt to install CLT. We hide
+# behind a check rather than triggering that prompt during a .pkg install,
+# which would look broken.
+if ! /usr/bin/xcode-select -p >/dev/null 2>&1; then
+  log "Xcode Command Line Tools missing — Git is unavailable."
+  /usr/bin/osascript -e 'display dialog "Claude Code 동작에 필요한 Git이 설치되어 있지 않습니다.\n\n시스템 창이 곧 뜨면 \"설치\"를 눌러 Xcode Command Line Tools를 설치해주세요. (약 1~2분)\n\n설치가 끝난 뒤 다시 이 인스톨러를 실행하면 자동으로 이어집니다." buttons {"알겠습니다"} default button 1 with icon note with title "Claude Code 인스톨러"' >/dev/null 2>&1 || true
+  /usr/bin/xcode-select --install >/dev/null 2>&1 || true
+  fail "Xcode Command Line Tools 설치를 먼저 완료해주세요."
+fi
+if ! command -v git >/dev/null 2>&1; then
+  fail "Git이 설치되어 있지 않습니다. (Xcode CLT는 있는데 git이 없음)"
+fi
+ok "Git $(git --version 2>/dev/null | awk '{print $3}') detected"
+
+# --- 3. Korean username heads-up -------------------------------------------
+# npm global install path uses ~/.npm cache. On macOS, non-ASCII characters
+# in $HOME are fine in practice (HFS+/APFS handle Unicode), but some npm
+# postinstall scripts written for older Node still trip up. Log a warning
+# instead of forcing a workaround.
+if echo "$USER" | LC_ALL=C grep -q '[^a-zA-Z0-9._-]'; then
+  log "Non-ASCII username detected: $USER (macOS handles this, just noting)"
+fi
+
+# --- 4. Install claude-code -------------------------------------------------
+log "Installing @anthropic-ai/claude-code via npm..."
+# Run npm as the original user, not root, so the cache lives in their home.
+INSTALL_USER="${USER:-root}"
+if [ "$(id -u)" = "0" ] && [ -n "$INSTALL_USER" ] && [ "$INSTALL_USER" != "root" ]; then
+  # When productbuild runs us as root, $USER is still set to the GUI user.
+  # `sudo -u "$USER" npm` keeps the cache out of /var/root.
+  if ! /usr/bin/sudo -u "$INSTALL_USER" -H /bin/bash -lc 'npm install -g @anthropic-ai/claude-code' >>"$LOG" 2>&1; then
+    log "npm install (as $INSTALL_USER) failed; retrying as root"
+    if ! npm install -g @anthropic-ai/claude-code >>"$LOG" 2>&1; then
+      fail "claude-code 설치에 실패했습니다. 인터넷 연결을 확인해주세요."
+    fi
+  fi
+else
+  if ! npm install -g @anthropic-ai/claude-code >>"$LOG" 2>&1; then
+    fail "claude-code 설치에 실패했습니다."
+  fi
+fi
+ok "claude-code 설치 완료"
+
+# --- 5. Smoke test ----------------------------------------------------------
+hash -r 2>/dev/null || true
+if command -v claude >/dev/null 2>&1; then
+  CLAUDE_V="$(claude --version 2>/dev/null | head -1)"
+  ok "Smoke test passed: $CLAUDE_V"
+else
+  log "claude command not on PATH yet; may need a fresh terminal."
+fi
+
+# --- 6. Drop an uninstall helper -------------------------------------------
+UNINSTALL="/usr/local/bin/claude-uninstall"
+cat > "$UNINSTALL" <<'EOF'
+#!/bin/bash
+# Removes claude-code and (optionally) the configuration directory.
+set -e
+echo "Claude Code를 제거합니다..."
+npm uninstall -g @anthropic-ai/claude-code 2>/dev/null || true
+if [ "${1:-}" = "--purge" ]; then
+  rm -rf "$HOME/.claude"
+  echo "설정 파일까지 모두 제거했습니다."
+fi
+rm -f /usr/local/bin/claude-uninstall
+echo "제거가 완료되었습니다."
+EOF
+chmod 0755 "$UNINSTALL" 2>/dev/null || true
+ok "Uninstall helper installed at $UNINSTALL"
+
+log "==== Installer finished successfully ===="
+exit 0

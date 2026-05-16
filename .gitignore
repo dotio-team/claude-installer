@@ -1,0 +1,16 @@
+# Build artifacts
+installer/macos/build/
+installer/macos/dist/
+installer/windows/dist/
+installer/windows/Output/
+
+# Infra state — contains cert ARNs etc, not secret but environment-specific
+infra/state/
+
+# Local dev junk
+.DS_Store
+*.log
+node_modules/
+.env
+.env.local
+.vercel

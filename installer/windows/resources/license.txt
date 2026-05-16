@@ -1,0 +1,39 @@
+Claude Code 원클릭 인스톨러 — 도티오(주식회사 도티오)
+
+이 인스톨러는 도티오가 비개발자의 Claude Code 도입을 돕기 위해 무상으로 제공하는 오픈소스 도구입니다.
+
+이 인스톨러가 하는 일
+======================
+
+1. 이 컴퓨터에 Node.js 20 LTS가 없으면 Node.js 공식 사이트(nodejs.org)에서
+   .msi를 내려받아 설치합니다.
+
+2. Git for Windows가 없으면 공식 사이트에서 설치 파일을 내려받아 설치합니다.
+
+3. npm을 통해 @anthropic-ai/claude-code 패키지를 글로벌로 설치합니다.
+
+4. 사용자 폴더 경로(%USERPROFILE%)에 한글이 포함되어 있다면,
+   C:\Users\Public\claude-code\ 를 대신 사용하도록 자동 구성합니다.
+
+5. 설치 로그를 %APPDATA%\ClaudeInstaller\install.log 에 저장합니다.
+
+
+도티오가 수집하지 않는 것
+=========================
+
+이 인스톨러는 어떤 개인정보도 외부로 전송하지 않습니다. 텔레메트리도
+없습니다.
+
+
+코드 사이닝
+===========
+
+이 인스톨러는 아직 Microsoft 코드 사이닝 인증서로 서명되어 있지 않아,
+Windows Defender SmartScreen에서 "PC 보호" 경고가 뜰 수 있습니다.
+"추가 정보" → "실행"을 누르면 진행됩니다.
+
+신뢰하실 수 있도록 인스톨러의 전체 소스를 GitHub에 공개해두었습니다:
+  https://github.com/dotio-team/claude-installer
+
+
+© 2026 주식회사 도티오. Claude Code는 Anthropic, PBC의 상표입니다.

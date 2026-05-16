@@ -1,0 +1,86 @@
+name: Build & publish installers
+
+on:
+  push:
+    tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g. v1.0.1)'
+        required: true
+        default: 'v1.0.0'
+
+jobs:
+  # --- macOS .pkg --------------------------------------------------------
+  build-macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build .pkg
+        run: |
+          export VERSION="${TAG#v}"
+          bash installer/macos/build.sh
+        env:
+          TAG: ${{ inputs.version || github.ref_name }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-pkg
+          path: installer/macos/dist/ClaudeCode-Installer.pkg
+          if-no-files-found: error
+
+  # --- Windows .exe ------------------------------------------------------
+  build-windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Inno Setup
+        shell: powershell
+        run: |
+          choco install innosetup -y --no-progress
+          echo "C:\Program Files (x86)\Inno Setup 6" | Out-File -Append -FilePath $env:GITHUB_PATH -Encoding ascii
+      - name: Build .exe
+        shell: cmd
+        working-directory: installer/windows
+        env:
+          APP_VERSION_RAW: ${{ inputs.version || github.ref_name }}
+        run: |
+          set APP_VERSION=%APP_VERSION_RAW:v=%
+          iscc installer.iss
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: installer/windows/dist/ClaudeCode-Installer.exe
+          if-no-files-found: error
+
+  # --- Publish to GitHub Releases ----------------------------------------
+  publish:
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-pkg
+          path: artifacts/
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+          path: artifacts/
+      - name: Create / update release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ inputs.version || github.ref_name }}
+        run: |
+          NOTES="Claude Code 원클릭 인스톨러 ${TAG}\n\n다운로드:\n- macOS: ClaudeCode-Installer.pkg\n- Windows: ClaudeCode-Installer.exe\n\n설치 방법: https://claude-installer-psi.vercel.app"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" artifacts/ClaudeCode-Installer.pkg artifacts/ClaudeCode-Installer.exe --clobber
+          else
+            gh release create "$TAG" \
+              artifacts/ClaudeCode-Installer.pkg \
+              artifacts/ClaudeCode-Installer.exe \
+              --title "$TAG" \
+              --notes "$(printf "$NOTES")" \
+              --latest
+          fi

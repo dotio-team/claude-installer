@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="utf-8" />
+<style>
+  body{font-family:-apple-system,"Pretendard Variable","Apple SD Gothic Neo",sans-serif;color:#1F1E1B;line-height:1.55;padding:14px 12px;font-size:12.5px;}
+  h2{font-size:14px;margin:14px 0 6px;}
+  p{margin:0 0 8px;color:#54524D;}
+  ul{margin:0 0 8px 18px;padding:0;color:#54524D;}
+</style></head>
+<body>
+  <p>이 인스톨러는 도티오(주식회사 도티오)가 비개발자의 Claude Code 도입을 돕기 위해 무상으로 제공하는 오픈소스 도구입니다.</p>
+  <h2>이 인스톨러가 하는 일</h2>
+  <ul>
+    <li>이 컴퓨터에 Node.js 20 LTS가 없으면 Node.js 공식 사이트(<b>nodejs.org</b>)에서 .pkg를 내려받아 설치합니다.</li>
+    <li>Xcode Command Line Tools(Git 포함) 설치 여부를 확인합니다.</li>
+    <li>npm을 통해 <b>@anthropic-ai/claude-code</b>를 글로벌로 설치합니다.</li>
+    <li>설치 로그를 <b>~/Library/Logs/ClaudeInstaller/install.log</b>에 저장합니다.</li>
+  </ul>
+  <h2>도티오가 수집하지 않는 것</h2>
+  <p>이 인스톨러는 어떤 개인정보도 외부로 전송하지 않습니다. 텔레메트리도 없습니다.</p>
+  <h2>코드 사이닝</h2>
+  <p>이 인스톨러는 아직 Apple Developer ID로 서명되어 있지 않습니다. macOS에서 "확인되지 않은 개발자" 경고가 뜰 수 있으며, 우회하는 방법은 안내 페이지에서 확인하실 수 있습니다. 신뢰하실 수 있도록 인스톨러의 전체 소스를 GitHub에 공개해두었습니다.</p>
+  <p style="margin-top:14px;color:#8A877F;font-size:11.5px;">© 2026 주식회사 도티오. Claude Code는 Anthropic, PBC의 상표입니다.</p>
+</body>
+</html>
