@@ -299,11 +299,21 @@
     aspect-ratio: 8 / 5;
     position: relative;
     font-family: var(--sans);
+    display: flex; flex-direction: column;
   }
   .mac-bar {
-    height: 36px; display: flex; align-items: center; gap: 8px; padding: 0 14px;
+    height: 36px; flex: none;
+    display: flex; align-items: center; gap: 8px; padding: 0 14px;
     background: #ECE9E0;
     border-bottom: 1px solid var(--border);
+  }
+  /* Stage holds the cross-faded scenes. flex:1 + position:relative + min-height:0
+     gives it a definite size that absolutely positioned scenes (and their flex
+     children) can stretch into — without this Safari ignores stretch on a flex
+     container whose height comes from top/bottom rather than an explicit value. */
+  .mac-stage {
+    flex: 1; min-height: 0;
+    position: relative;
   }
   .mac-bar .tl { width: 12px; height: 12px; border-radius: 999px; }
   .mac-bar .tl.r { background: #E26D5A; }
@@ -704,10 +714,10 @@
   }
 
   /* ---------- macOS Sequoia security scenes ---------- */
-  /* Scene wrapper — three states cross-fade inside the .mac container. */
+  /* Three states cross-fade inside .mac-stage (which is position:relative). */
   .scene {
     position: absolute;
-    inset: 36px 0 0 0;
+    top: 0; right: 0; bottom: 0; left: 0;
     opacity: 0;
     pointer-events: none;
     transition: opacity 320ms ease-out;
@@ -982,6 +992,8 @@
             <span class="mac-title" id="mac-title">설치 프로그램</span>
           </div>
 
+          <div class="mac-stage">
+
           <!-- Scene A — first launch attempt is blocked -->
           <section class="scene scene-block is-active" data-scene="block">
             <div class="dialog-card">
@@ -1036,6 +1048,8 @@
               <div class="touchid-dots"><span></span><span></span><span></span></div>
             </div>
           </section>
+
+          </div><!-- /.mac-stage -->
 
           <!-- Cursor (shared across all scenes) -->
           <div class="cursor" id="cursor" style="left:50%;top:50%">
