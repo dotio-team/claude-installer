@@ -745,18 +745,19 @@
   }
 
   /* Scene B: System Settings → Privacy & Security */
+  /* Grid (not flex) — children fill row implicitly without stretch-into-
+     absolute-parent quirks. */
   .scene-settings {
     background: var(--bg);
-    display: flex;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: 32% 1fr;
     font-size: 11.5px;
   }
   .settings-sidebar {
-    width: 32%;
-    height: 100%;
     background: linear-gradient(180deg, #f2efe7 0%, #ECE9E0 100%);
     border-right: 1px solid var(--border);
     padding: 10px 8px;
+    overflow: hidden;
   }
   .settings-search {
     font-size: 11px; color: var(--ink-subtle);
@@ -777,7 +778,7 @@
   .settings-item.active { background: rgba(204,120,92,0.16); color: var(--ink); }
   .settings-item.active .dot { background: var(--accent); opacity: 1; }
 
-  .settings-content { flex: 1; height: 100%; padding: 16px 18px; overflow: hidden; }
+  .settings-content { padding: 16px 18px; overflow: hidden; }
   .settings-h {
     font-family: var(--serif);
     font-size: 14px; font-weight: 600;
