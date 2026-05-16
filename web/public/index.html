@@ -703,6 +703,143 @@
     .modal { padding: 28px; }
   }
 
+  /* ---------- macOS Sequoia security scenes ---------- */
+  /* Scene wrapper — three states cross-fade inside the .mac container. */
+  .scene {
+    position: absolute;
+    inset: 36px 0 0 0;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 320ms ease-out;
+  }
+  .scene.is-active { opacity: 1; }
+
+  /* Scene A: "couldn't verify" blocked dialog */
+  .scene-block {
+    background: linear-gradient(180deg, #ECE9E0 0%, #D8D4C8 100%);
+    display: grid; place-items: center;
+    padding: 24px;
+  }
+  .scene-block .dialog-card {
+    width: 280px;
+    padding: 18px 18px 14px;
+    background: rgba(248,247,242,0.98);
+    border-radius: 12px;
+    border: 1px solid var(--border-strong);
+    box-shadow: 0 24px 60px rgba(31,30,27,0.30);
+    text-align: center;
+  }
+  .scene-block .dialog-icon-block {
+    width: 38px; height: 38px; margin: 0 auto 10px;
+    color: var(--warning);
+  }
+
+  /* Scene B: System Settings → Privacy & Security */
+  .scene-settings {
+    background: var(--bg);
+    display: flex;
+    font-size: 11.5px;
+  }
+  .settings-sidebar {
+    width: 32%;
+    background: linear-gradient(180deg, #f2efe7 0%, #ECE9E0 100%);
+    border-right: 1px solid var(--border);
+    padding: 10px 8px;
+  }
+  .settings-search {
+    font-size: 11px; color: var(--ink-subtle);
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    margin-bottom: 8px;
+  }
+  .settings-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 5px 8px; border-radius: 5px;
+    color: var(--ink-muted);
+    font-size: 11px;
+    line-height: 1.2;
+  }
+  .settings-item .dot { width: 10px; height: 10px; border-radius: 3px; background: var(--ink-subtle); opacity: .4; flex: none; }
+  .settings-item.active { background: rgba(204,120,92,0.16); color: var(--ink); }
+  .settings-item.active .dot { background: var(--accent); opacity: 1; }
+
+  .settings-content { flex: 1; padding: 16px 18px; overflow: hidden; }
+  .settings-h {
+    font-family: var(--serif);
+    font-size: 14px; font-weight: 600;
+    margin: 0 0 10px;
+    color: var(--ink);
+  }
+  .settings-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 11.5px;
+  }
+  .settings-label { color: var(--ink); }
+  .settings-value { color: var(--ink-muted); font-size: 11px; }
+  .settings-block {
+    margin-top: 10px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: grid; grid-template-columns: 1fr auto; gap: 10px;
+    align-items: center;
+  }
+  .settings-block-text {
+    font-size: 11px; color: var(--ink-muted); line-height: 1.45;
+  }
+  .settings-btn-anyway {
+    padding: 6px 11px; border-radius: 6px;
+    font-size: 11.5px; font-weight: 600;
+    background: var(--bg-elevated); color: var(--ink);
+    border: 1px solid var(--border-strong);
+    transition: background 180ms ease-out, color 180ms ease-out, border-color 180ms ease-out, transform 180ms ease-out, box-shadow 180ms ease-out;
+    white-space: nowrap;
+  }
+  .settings-btn-anyway.is-hl {
+    background: var(--accent); color: #fff; border-color: var(--accent);
+    transform: scale(1.05);
+    box-shadow: 0 6px 18px rgba(204,120,92,.35);
+  }
+
+  /* Scene C: Touch ID prompt */
+  .scene-touchid {
+    background: rgba(31,30,27,0.55);
+    display: grid; place-items: center;
+  }
+  .touchid-card {
+    width: 260px;
+    background: rgba(248,247,242,0.98);
+    backdrop-filter: blur(20px);
+    border: 1px solid var(--border-strong);
+    border-radius: 12px;
+    padding: 22px 18px;
+    text-align: center;
+    box-shadow: 0 24px 60px rgba(31,30,27,0.30);
+  }
+  .touchid-icon {
+    width: 40px; height: 40px; margin: 0 auto 8px;
+    color: var(--ink-muted);
+  }
+  .touchid-title { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+  .touchid-body { font-size: 11.5px; color: var(--ink-muted); margin-bottom: 14px; line-height: 1.45; }
+  .touchid-dots { display: inline-flex; gap: 6px; }
+  .touchid-dots span {
+    width: 8px; height: 8px; border-radius: 999px;
+    background: var(--ink-subtle); opacity: .35;
+    animation: pulse 1.05s ease-in-out infinite;
+  }
+  .touchid-dots span:nth-child(2) { animation-delay: .15s; }
+  .touchid-dots span:nth-child(3) { animation-delay: .30s; }
+  @keyframes pulse {
+    0%, 100% { opacity: .35; background: var(--ink-subtle); }
+    50%      { opacity: 1;   background: var(--accent); }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0ms !important;
@@ -837,78 +974,82 @@
     </div>
 
     <div class="demo-wrap">
-      <!-- macOS panel -->
+      <!-- macOS panel (Sequoia security flow: blocked → Settings → Open Anyway → Touch ID) -->
       <div class="panel is-active" data-panel="mac">
-        <!-- Animated macOS Finder mock -->
-        <div class="mac" id="mac-demo" role="img" aria-label="macOS에서 보안 경고를 우회하는 4단계 시연">
+        <div class="mac" id="mac-demo" role="img" aria-label="macOS Sequoia에서 보안 경고를 우회하는 4단계 시연">
           <div class="mac-bar">
             <span class="tl r"></span><span class="tl y"></span><span class="tl g"></span>
-            <span class="mac-title">다운로드</span>
+            <span class="mac-title" id="mac-title">설치 프로그램</span>
           </div>
-          <div class="mac-body">
-            <div class="mac-sidebar">
-              <div class="group">즐겨찾기</div>
-              <div class="row"><span class="dot"></span>AirDrop</div>
-              <div class="row active"><span class="dot"></span>다운로드</div>
-              <div class="row"><span class="dot"></span>문서</div>
-              <div class="row"><span class="dot"></span>응용 프로그램</div>
-              <div class="group">위치</div>
-              <div class="row"><span class="dot"></span>iCloud</div>
-            </div>
 
-            <div class="mac-grid">
-              <div class="file"><div class="ico"><span class="corner"></span><span class="ext">DMG</span></div><span class="label">스크린샷</span></div>
-              <div class="file is-target" id="target-file">
-                <div class="ico"><span class="corner"></span><span class="ext">PKG</span></div>
-                <span class="label">ClaudeCode-Installer</span>
-              </div>
-              <div class="file"><div class="ico"><span class="corner"></span><span class="ext">PDF</span></div><span class="label">계약서</span></div>
-              <div class="file"><div class="ico"><span class="corner"></span><span class="ext">ZIP</span></div><span class="label">백업</span></div>
-              <div class="file"><div class="ico"><span class="corner"></span><span class="ext">MP3</span></div><span class="label">노래</span></div>
-              <div class="file"><div class="ico"><span class="corner"></span><span class="ext">PNG</span></div><span class="label">사진</span></div>
-              <div class="file"><div class="ico"><span class="corner"></span><span class="ext">TXT</span></div><span class="label">메모</span></div>
-              <div class="file"><div class="ico"><span class="corner"></span><span class="ext">MOV</span></div><span class="label">영상</span></div>
-            </div>
-
-            <!-- Context menu -->
-            <div class="ctx-menu" id="ctx-menu">
-              <div class="item is-hl">열기 <span class="kbd">⏎</span></div>
-              <div class="item">새 탭에서 열기</div>
-              <div class="item">다음으로 열기 ›</div>
-              <div class="sep"></div>
-              <div class="item">정보 가져오기 <span class="kbd">⌘I</span></div>
-              <div class="item">이름 변경</div>
-              <div class="sep"></div>
-              <div class="item">휴지통으로 이동</div>
-            </div>
-
-            <!-- Cursor -->
-            <div class="cursor" id="cursor" style="left:240px;top:130px">
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="white" stroke="#1F1E1B" stroke-width="1.5" stroke-linejoin="round">
-                <path d="M4 2.5 L4 17 L8 13.5 L10.5 19 L13 18 L10.5 12.5 L16 12.5 Z"/>
+          <!-- Scene A — first launch attempt is blocked -->
+          <section class="scene scene-block is-active" data-scene="block">
+            <div class="dialog-card">
+              <svg class="dialog-icon-block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 8v5"/><path d="M12 16h.01"/>
               </svg>
-            </div>
-
-            <!-- Dialog -->
-            <div class="dialog" id="dialog" role="alertdialog" aria-modal="true" aria-label="확인되지 않은 개발자 경고">
-              <div class="dialog-card">
-                <div class="dialog-icon">!</div>
-                <div class="dialog-title">"ClaudeCode-Installer"의 개발자를 확인할 수 없습니다.</div>
-                <div class="dialog-body">이 항목을 정말로 여시겠습니까? 인터넷에서 다운로드한 파일입니다.</div>
-                <div class="dialog-btns">
-                  <button class="dialog-btn">취소</button>
-                  <button class="dialog-btn primary" id="dialog-open-btn">열기</button>
-                </div>
+              <div class="dialog-title">"ClaudeCode-Installer.pkg"이(가) 차단되었습니다.</div>
+              <div class="dialog-body">Apple이 이 항목에 멀웨어가 들어있지 않은지 확인할 수 없습니다.</div>
+              <div class="dialog-btns" style="justify-content:center">
+                <button class="dialog-btn primary" style="flex:none;padding:7px 22px">완료</button>
               </div>
             </div>
+          </section>
 
-            <!-- Caption -->
-            <div class="caption-strip" id="caption-strip">
-              <span class="caption-pill" data-step="0"><span class="num">1</span>다운로드 폴더 열기</span>
-              <span class="caption-pill" data-step="1"><span class="num">2</span>파일을 Control+클릭</span>
-              <span class="caption-pill" data-step="2"><span class="num">3</span>"열기" 선택</span>
-              <span class="caption-pill" data-step="3"><span class="num">4</span>한 번 더 "열기"</span>
+          <!-- Scene B — System Settings → Privacy & Security with the magic button -->
+          <section class="scene scene-settings" data-scene="settings">
+            <div class="settings-sidebar">
+              <div class="settings-search">검색</div>
+              <div class="settings-item"><span class="dot"></span>일반</div>
+              <div class="settings-item"><span class="dot"></span>외관</div>
+              <div class="settings-item active"><span class="dot"></span>개인정보 보호 및 보안</div>
+              <div class="settings-item"><span class="dot"></span>데스크탑 및 Dock</div>
+              <div class="settings-item"><span class="dot"></span>디스플레이</div>
+              <div class="settings-item"><span class="dot"></span>사운드</div>
             </div>
+            <div class="settings-content">
+              <div class="settings-h">보안</div>
+              <div class="settings-row">
+                <span class="settings-label">앱 다운로드 허용 위치</span>
+                <span class="settings-value">App Store 및 확인된 개발자 ▾</span>
+              </div>
+              <div class="settings-block">
+                <div class="settings-block-text">"ClaudeCode-Installer.pkg"이(가) 멀웨어를 포함하고 있지 않음을 확인할 수 없어 사용이 차단되었습니다.</div>
+                <button class="settings-btn-anyway" id="anyway-btn">그래도 열기</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Scene C — Touch ID prompt to confirm the override -->
+          <section class="scene scene-touchid" data-scene="touchid">
+            <div class="touchid-card">
+              <svg class="touchid-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3c-3.5 0-6 2.5-6 6v2c0 4 2 7 4 8"/>
+                <path d="M12 3c3.5 0 6 2.5 6 6v2c0 4-2 7-4 8"/>
+                <path d="M9 11v1c0 3 1.5 5 3 6"/>
+                <path d="M15 11v1c0 3-1.5 5-3 6"/>
+                <path d="M12 8v8"/>
+              </svg>
+              <div class="touchid-title">Touch ID로 설정 변경</div>
+              <div class="touchid-body">"ClaudeCode-Installer.pkg" 사용을 허용합니다.</div>
+              <div class="touchid-dots"><span></span><span></span><span></span></div>
+            </div>
+          </section>
+
+          <!-- Cursor (shared across all scenes) -->
+          <div class="cursor" id="cursor" style="left:50%;top:50%">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="white" stroke="#1F1E1B" stroke-width="1.5" stroke-linejoin="round">
+              <path d="M4 2.5 L4 17 L8 13.5 L10.5 19 L13 18 L10.5 12.5 L16 12.5 Z"/>
+            </svg>
+          </div>
+
+          <!-- Caption -->
+          <div class="caption-strip" id="caption-strip">
+            <span class="caption-pill" data-step="0"><span class="num">1</span>차단 알림에서 "완료"</span>
+            <span class="caption-pill" data-step="1"><span class="num">2</span>시스템 설정 → 개인정보 보호 및 보안</span>
+            <span class="caption-pill" data-step="2"><span class="num">3</span>"그래도 열기" 클릭</span>
+            <span class="caption-pill" data-step="3"><span class="num">4</span>Touch ID로 확인</span>
           </div>
         </div>
       </div>
@@ -948,11 +1089,12 @@
       </div>
 
       <div class="security-text">
-        <h3 class="h3" style="margin-bottom:12px">"확인되지 않은 개발자" 메시지가 뜨면…</h3>
+        <h3 class="h3" style="margin-bottom:12px">"차단되었습니다" 메시지가 뜨면…</h3>
         <ol class="security-steps" data-panel-content="mac">
-          <li><span>다운로드된 파일을 <b>우클릭</b> 또는 <span class="kbd-inline">Control</span> + 클릭하세요.</span></li>
-          <li><span>메뉴에서 <b>"열기"</b>를 선택합니다.</span></li>
-          <li><span>다시 한 번 <b>"열기"</b>를 누르면 설치가 진행됩니다.</span></li>
+          <li><span>차단 알림에서 <b>"완료"</b>를 누릅니다. (이 단계에서 멈춰도 괜찮습니다)</span></li>
+          <li><span><b>시스템 설정 → 개인정보 보호 및 보안</b>을 엽니다.</span></li>
+          <li><span>보안 섹션에 "ClaudeCode-Installer.pkg이(가) 차단되었습니다" 메시지 옆 <b>"그래도 열기"</b> 버튼을 누릅니다.</span></li>
+          <li><span><b>Touch ID</b> 또는 비밀번호로 확인하면 설치가 진행됩니다.</span></li>
         </ol>
         <ol class="security-steps" data-panel-content="win" style="display:none">
           <li><span>"PC 보호" 창에서 <b>"추가 정보"</b>를 누르세요.</span></li>
@@ -1260,71 +1402,80 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.clas
   });
 })();
 
-/* ----------------- Animated macOS demo ----------------- */
+/* ----------------- Animated macOS Sequoia demo -----------------
+   Four-beat loop:
+     0. blocked dialog (a "didn't work" moment so the user recognizes it)
+     1. cross-fade to Settings → Privacy & Security
+     2. cursor moves to "그래도 열기" and presses
+     3. Touch ID prompt confirms; loop restarts after a pause
+   Cursor coordinates are absolute inside the .mac container (it's
+   position:relative), tuned for the 8:5 aspect at desktop width. */
 (function () {
-  if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const macDemo = document.getElementById('mac-demo');
+  if (!macDemo) return;
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    // Static fallback: just show scene B (the Settings panel) so the
+    // "그래도 열기" button is visible without motion.
+    macDemo.querySelectorAll('.scene').forEach(s => s.classList.toggle('is-active', s.dataset.scene === 'settings'));
+    return;
+  }
 
-  const cursor = document.getElementById('cursor');
-  const ctxMenu = document.getElementById('ctx-menu');
-  const dialog = document.getElementById('dialog');
-  const dialogBtn = document.getElementById('dialog-open-btn');
-  const file = document.getElementById('target-file');
-  const pills = document.querySelectorAll('.caption-pill');
+  const scenes = {
+    block:    macDemo.querySelector('[data-scene="block"]'),
+    settings: macDemo.querySelector('[data-scene="settings"]'),
+    touchid:  macDemo.querySelector('[data-scene="touchid"]'),
+  };
+  const cursor    = document.getElementById('cursor');
+  const anywayBtn = document.getElementById('anyway-btn');
+  const titleEl   = document.getElementById('mac-title');
+  const pills     = document.querySelectorAll('.caption-pill');
 
   const setStep = (n) => pills.forEach(p => p.classList.toggle('is-on', +p.dataset.step === n));
+  const showScene = (which) => {
+    Object.entries(scenes).forEach(([name, el]) => el.classList.toggle('is-active', name === which));
+    titleEl.textContent = which === 'settings' ? '시스템 설정' :
+                           which === 'touchid'  ? '' : '설치 프로그램';
+  };
   const moveCursor = (x, y) => { cursor.style.left = x + 'px'; cursor.style.top = y + 'px'; };
+  const wait = (ms) => new Promise(r => setTimeout(r, ms));
 
   let running = true;
   async function run() {
     while (running) {
-      // 0 — idle
+      // 0 — blocked dialog appears
+      showScene('block');
       setStep(0);
-      ctxMenu.style.opacity = 0; ctxMenu.style.transform = 'translateY(-4px) scale(0.98)';
-      ctxMenu.style.pointerEvents = 'none';
-      dialog.classList.remove('is-open');
-      dialogBtn.classList.remove('is-hl');
-      file.classList.remove('is-hover');
-      moveCursor(280, 160);
-      await wait(900);
+      moveCursor(60, 60);
+      await wait(1800);
 
-      // 1 — move to file, right-click → context menu
+      // 1 — open System Settings
+      showScene('settings');
       setStep(1);
-      moveCursor(232, 116);
-      await wait(800);
-      ctxMenu.style.opacity = 1; ctxMenu.style.transform = 'translateY(0) scale(1)';
-      await wait(900);
+      moveCursor(80, 90);
+      await wait(1300);
 
-      // 2 — select "열기"
+      // 2 — cursor travels to "그래도 열기" then presses
       setStep(2);
-      // Cursor moves into menu
-      moveCursor(258, 130);
-      await wait(700);
-      // flash highlight
-      const items = ctxMenu.querySelectorAll('.item');
-      items.forEach(i => i.classList.remove('is-hl'));
-      items[0].classList.add('is-hl');
-      await wait(450);
-      ctxMenu.style.opacity = 0; ctxMenu.style.transform = 'translateY(-4px) scale(0.98)';
-      await wait(380);
-
-      // 3 — dialog opens
-      setStep(3);
-      dialog.classList.add('is-open');
-      moveCursor(220, 200);
-      await wait(800);
-      // cursor to "열기" button
-      moveCursor(270, 215);
+      const btnRect = anywayBtn.getBoundingClientRect();
+      const macRect = macDemo.getBoundingClientRect();
+      // Center cursor on the button, relative to the .mac container.
+      const cx = btnRect.left - macRect.left + btnRect.width / 2 - 6;
+      const cy = btnRect.top  - macRect.top  + btnRect.height / 2 - 4;
+      moveCursor(cx, cy);
+      await wait(750);
+      anywayBtn.classList.add('is-hl');
       await wait(550);
-      dialogBtn.classList.add('is-hl');
-      await wait(700);
-      // Close after pressed
-      dialog.classList.remove('is-open');
-      await wait(900);
+      anywayBtn.classList.remove('is-hl');
+
+      // 3 — Touch ID
+      showScene('touchid');
+      setStep(3);
+      moveCursor(macRect.width * 0.65, macRect.height * 0.55);
+      await wait(2200);
     }
   }
-  function wait(ms) { return new Promise(r => setTimeout(r, ms)); }
 
-  // Run only when visible
+  // Run only when the demo is on screen, to save battery on long pages.
   const io = new IntersectionObserver((entries) => {
     entries.forEach(e => {
       if (e.isIntersecting && !window.__demoStarted) {
@@ -1333,7 +1484,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape' && modal.clas
       }
     });
   }, { threshold: 0.4 });
-  io.observe(document.getElementById('mac-demo'));
+  io.observe(macDemo);
 })();
 
 /* ----------------- Copy share button ----------------- */
