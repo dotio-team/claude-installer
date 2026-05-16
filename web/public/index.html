@@ -714,10 +714,15 @@
   }
 
   /* ---------- macOS Sequoia security scenes ---------- */
-  /* Three states cross-fade inside .mac-stage (which is position:relative). */
+  /* Three states cross-fade inside .mac-stage (which is position:relative).
+     The explicit width/height:100% is what flex/grid children need to see
+     a definite cross-axis size — without it, "1fr" in nested grids and
+     "stretch" in nested flex both fall back to content-size. */
   .scene {
     position: absolute;
-    top: 0; right: 0; bottom: 0; left: 0;
+    top: 0; left: 0;
+    width: 100%;
+    height: 100%;
     opacity: 0;
     pointer-events: none;
     transition: opacity 320ms ease-out;
