@@ -150,12 +150,22 @@ fi
 # (which fetch the platform-native binary) actually execute. Without it,
 # npm drops root before running those scripts, they can't write to the
 # install dir, and `claude` lands on PATH but errors with "claude native
-# binary not installed". We chmod 0755 the lib dir afterward so a later
-# user-mode `npm install -g` doesn't fail with EACCES.
+# binary not installed". --foreground-scripts surfaces those scripts'
+# output in our log so we can tell if the binary download actually ran.
+do_install() {
+  npm install -g \
+    --unsafe-perm \
+    --foreground-scripts \
+    --no-audit --no-fund \
+    @anthropic-ai/claude-code >>"$LOG" 2>&1
+}
+
 log "Installing @anthropic-ai/claude-code via npm..."
-if ! npm install -g --unsafe-perm @anthropic-ai/claude-code >>"$LOG" 2>&1; then
+if ! do_install; then
   fail "claude-code 설치에 실패했습니다. 인터넷 연결 또는 npm 권한을 확인해주세요."
 fi
+ok "claude-code npm 설치 완료"
+
 # Best-effort: hand the global lib back to the GUI user so subsequent
 # `npm install -g` from their shell works without sudo. Failure is fine.
 GUI_USER="$(/usr/bin/stat -f '%Su' /dev/console 2>/dev/null)"
@@ -165,27 +175,44 @@ if [ -n "$GUI_USER" ] && [ "$GUI_USER" != "root" ]; then
   /usr/sbin/chown -R "$GUI_USER":staff "$NPM_PREFIX/bin" 2>/dev/null || true
   log "Handed npm global dirs to user $GUI_USER"
 fi
-ok "claude-code 설치 완료"
 
-# --- 5. Smoke test ----------------------------------------------------------
-# Beyond just `which claude` — run `claude --version` and confirm the native
-# binary is actually wired up. The npm package can install successfully but
-# leave the binary missing if --unsafe-perm wasn't set (the bug we just hit).
-hash -r 2>/dev/null || true
-if ! command -v claude >/dev/null 2>&1; then
-  log "WARN: claude command not on PATH yet; user may need a new terminal."
-else
-  CLAUDE_OUT="$(claude --version 2>&1)"
-  # Real output format is "<x.y.z> (Claude Code)" — match a semver triple
-  # anywhere in the output. Catches the broken case where the binary is
-  # missing (which prints "native binary not installed" with no semver).
-  if echo "$CLAUDE_OUT" | grep -qE '[0-9]+\.[0-9]+\.[0-9]+'; then
-    ok "Smoke test passed: $(echo "$CLAUDE_OUT" | head -1)"
-  else
-    log "WARN: claude --version returned unexpected output: $CLAUDE_OUT"
-    log "      (The package is installed but the native binary may be missing.)"
-    # Don't `fail` — installation technically succeeded, this is a runtime warning.
+# --- 5. Smoke test + auto-repair on native-binary miss ---------------------
+# Real output format is "<x.y.z> (Claude Code)". If we get that, success.
+# If we get "claude native binary not installed", npm did install the JS
+# wrapper but the install.cjs post-script that downloads the native binary
+# was skipped/failed. Retry once with a clean uninstall first.
+smoke_test() {
+  hash -r 2>/dev/null || true
+  command -v claude >/dev/null 2>&1 || return 2
+  local out
+  out="$(claude --version 2>&1)"
+  if echo "$out" | grep -qE '[0-9]+\.[0-9]+\.[0-9]+'; then
+    ok "Smoke test passed: $(echo "$out" | head -1)"
+    return 0
   fi
+  log "Smoke test failed. Output was: $out"
+  return 1
+}
+
+if ! smoke_test; then
+  case $? in
+    1)
+      log "Attempting auto-repair: uninstall + reinstall to re-trigger install.cjs"
+      npm uninstall -g @anthropic-ai/claude-code >>"$LOG" 2>&1 || true
+      if ! do_install; then
+        log "Auto-repair: npm reinstall failed"
+      fi
+      if ! smoke_test; then
+        # Final fallback — show actionable dialog. We don't fail the .pkg
+        # install (the JS wrapper IS on disk) but we make sure the user
+        # knows what to run.
+        /usr/bin/osascript -e 'display dialog "Claude Code 패키지는 설치되었지만 플랫폼 전용 바이너리 다운로드가 실패했습니다.\n\n네트워크 일시적 문제일 가능성이 큽니다. 터미널에서 아래 한 줄을 복사·붙여넣기 후 비밀번호를 입력해주세요:\n\nsudo npm install -g --unsafe-perm --foreground-scripts @anthropic-ai/claude-code\n\n그래도 안 되면 ~/Library/Logs/ClaudeInstaller/install.log 를 확인해주세요." buttons {"알겠습니다"} default button 1 with icon caution with title "Claude Code 인스톨러"' >/dev/null 2>&1 || true
+      fi
+      ;;
+    2)
+      log "WARN: claude command not on PATH yet; user may need a new terminal."
+      ;;
+  esac
 fi
 
 # --- 6. Drop an uninstall helper -------------------------------------------

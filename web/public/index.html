@@ -227,7 +227,14 @@
     font-family: var(--mono); font-size: 14px; line-height: 1.7;
     color: var(--code-ink);
   }
-  .t-prompt { color: rgba(250,249,245,0.45); }
+  /* We dropped the literal "$" from the prompt because non-developers
+     typed it verbatim into zsh. The chevron is a left-margin glyph that
+     reads as "this is a terminal line" without being mistaken for code. */
+  .t-prompt {
+    color: rgba(250,249,245,0.35);
+    user-select: none; -webkit-user-select: none;
+    margin-right: 8px;
+  }
   .t-cmd { color: var(--code-ink); }
   .t-comment { color: rgba(250,249,245,0.4); font-style: italic; }
   .t-accent { color: #E8A88F; }
@@ -931,10 +938,10 @@
             <span class="window-title">~/projects · claude-code</span>
           </div>
           <div class="terminal-body">
-            <div><span class="t-prompt">$</span> <span class="t-cmd">claude --version</span></div>
+            <div><span class="t-prompt">›</span> <span class="t-cmd">claude --version</span></div>
             <div class="t-success">claude-code 2.1.0  <span class="t-comment">// 설치 완료</span></div>
             <div style="height:8px"></div>
-            <div><span class="t-prompt">$</span> <span class="t-cmd">claude</span></div>
+            <div><span class="t-prompt">›</span> <span class="t-cmd">claude</span></div>
             <div class="t-comment">› 무엇을 도와드릴까요?</div>
             <div class="t-accent">› 이 폴더의 README를 한 줄로 요약해줘<span class="blink"></span></div>
           </div>
