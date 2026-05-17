@@ -76,19 +76,60 @@ if $need_node; then
   ok "Node.js installed: $(node -v 2>/dev/null || echo unknown)"
 fi
 
-# --- 2. Git (optional — warn but don't block) -------------------------------
-# Git is shipped with Xcode Command Line Tools. Claude Code itself doesn't
-# need git to install (npm package is published, no git: dependencies), but
-# many real-world workflows want it. So we DON'T fail when it's missing —
-# we just record a warning and surface a friendly note at the end so the
-# user knows to install CLT later when they need git-aware features.
+# --- 2. Git (via Xcode Command Line Tools) ---------------------------------
+# Claude Code itself doesn't strictly need git to *install*, but many of the
+# default workflows (diff context, commits, repo-aware features) assume it.
+# So we try hard to get CLT installed inline — trigger Apple's installer,
+# wait up to 15 min for it to finish, then continue with full features.
+# If the user dismisses the popup or it times out, we fall back to
+# continuing without git rather than dead-ending the install.
 GIT_AVAILABLE=true
-if ! /usr/bin/xcode-select -p >/dev/null 2>&1; then
-  log "Xcode Command Line Tools missing — Git is unavailable. Continuing without it."
-  GIT_AVAILABLE=false
-elif ! command -v git >/dev/null 2>&1; then
-  log "Xcode CLT present but git not on PATH — continuing without git."
-  GIT_AVAILABLE=false
+if ! /usr/bin/xcode-select -p >/dev/null 2>&1 || ! command -v git >/dev/null 2>&1; then
+  log "Git missing — triggering Xcode Command Line Tools install..."
+
+  # Heads-up dialog BEFORE the system popup, so the user knows what's about
+  # to happen and doesn't panic when Apple's own dialog appears.
+  /usr/bin/osascript -e 'display dialog "Git이 이 컴퓨터에 없어, Apple의 공식 Xcode Command Line Tools를 자동으로 설치합니다.\n\n잠시 후 시스템 팝업이 뜨면 \"설치\" 버튼을 눌러주세요.\n다운로드에 5~15분 정도 걸리며, 끝나면 자동으로 이어집니다.\n\n(이 창은 그대로 두고 시스템 팝업만 보시면 됩니다.)" buttons {"알겠습니다"} default button 1 with icon note with title "Claude Code 인스톨러"' >/dev/null 2>&1 || true
+
+  # Trigger the system installer popup. This call returns immediately;
+  # the actual install runs in the background under softwareupdate.
+  /usr/bin/xcode-select --install >/dev/null 2>&1 || true
+
+  # Poll for completion. 15 min cap (90 × 10s = 900s). CLT downloads vary
+  # 30 MB – 700 MB depending on macOS version and existing tooling.
+  log "Polling for CLT install (up to 15 min)..."
+  CLT_OK=false
+  for i in $(seq 1 90); do
+    sleep 10
+    if /usr/bin/xcode-select -p >/dev/null 2>&1 && command -v git >/dev/null 2>&1; then
+      CLT_OK=true
+      ok "Xcode CLT installed after ~$((i * 10))s"
+      break
+    fi
+  done
+
+  if [ "$CLT_OK" = "false" ]; then
+    log "CLT install did not complete within 15 min."
+    # Ask the user how to proceed — wait longer (one more round) or skip.
+    RESP="$(/usr/bin/osascript -e 'display dialog "Xcode Command Line Tools 설치가 15분이 지나도 끝나지 않았습니다.\n\nApple 다운로드가 느리거나 시스템 팝업의 \"설치\" 버튼을 아직 누르지 않으셨을 수 있습니다.\n\n어떻게 할까요?" buttons {"git 없이 진행", "5분 더 기다리기"} default button 2 with icon caution with title "Claude Code 인스톨러"' 2>/dev/null || echo 'button returned:git 없이 진행')"
+    if echo "$RESP" | grep -q "기다리기"; then
+      for i in $(seq 1 30); do
+        sleep 10
+        if /usr/bin/xcode-select -p >/dev/null 2>&1 && command -v git >/dev/null 2>&1; then
+          CLT_OK=true
+          ok "CLT eventually installed"
+          break
+        fi
+      done
+    fi
+  fi
+
+  if [ "$CLT_OK" = "true" ]; then
+    ok "Git $(git --version 2>/dev/null | awk '{print $3}') detected"
+  else
+    log "Proceeding without git — claude-code will install but git-aware features will be limited."
+    GIT_AVAILABLE=false
+  fi
 else
   ok "Git $(git --version 2>/dev/null | awk '{print $3}') detected"
 fi
@@ -165,9 +206,9 @@ EOF
 chmod 0755 "$UNINSTALL" 2>/dev/null || true
 ok "Uninstall helper installed at $UNINSTALL"
 
-# --- 7. Optional: surface git-missing notice at the very end ---------------
+# --- 7. Fallback note if user chose to skip the CLT install ----------------
 if [ "${GIT_AVAILABLE}" = "false" ]; then
-  /usr/bin/osascript -e 'display dialog "Claude Code 설치는 끝났습니다.\n\n다만 이 컴퓨터에 Git이 없어, 나중에 Claude Code로 git 저장소 관련 작업을 하실 때 한 번 더 설치를 안내받게 됩니다.\n\n미리 깔아두시려면 터미널에서 다음을 실행하세요:\n  xcode-select --install\n\n지금은 그냥 사용하셔도 됩니다." buttons {"알겠습니다"} default button 1 with icon note with title "Claude Code 인스톨러"' >/dev/null 2>&1 || true
+  /usr/bin/osascript -e 'display dialog "Claude Code 설치는 끝났습니다.\n\n다만 Git 설치를 건너뛰셔서, 나중에 git 저장소 관련 기능을 쓰실 때 다시 안내받게 됩니다.\n\n미리 깔아두시려면 터미널에서:\n  xcode-select --install" buttons {"알겠습니다"} default button 1 with icon note with title "Claude Code 인스톨러"' >/dev/null 2>&1 || true
 fi
 
 log "==== Installer finished successfully ===="
