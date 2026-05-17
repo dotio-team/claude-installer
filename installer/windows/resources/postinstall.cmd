@@ -101,6 +101,29 @@ goto :smoke_done
 
 :smoke_done
 
+:: --- 6. Ensure %APPDATA%\npm is on user PATH ------------------------------
+:: Mirror the macOS behavior: setx persists across new shells so claude
+:: works in a fresh PowerShell/cmd without manual PATH editing.
+echo %PATH% | findstr /i "%APPDATA%\npm" >nul
+if errorlevel 1 (
+  setx PATH "%PATH%;%APPDATA%\npm" >nul 2>&1
+  call :log "Added %APPDATA%\npm to user PATH"
+)
+
+:: --- 7. Drop a doctor helper for support -----------------------------------
+set "DOCTOR=%APPDATA%\ClaudeInstaller\claude-doctor.cmd"
+> "%DOCTOR%" echo @echo off
+>>"%DOCTOR%" echo echo ===== claude-doctor =====
+>>"%DOCTOR%" echo ver
+>>"%DOCTOR%" echo echo USER=%%USERNAME%% USERPROFILE=%%USERPROFILE%%
+>>"%DOCTOR%" echo echo. ^& echo --- PATH --- ^& echo %%PATH%%
+>>"%DOCTOR%" echo echo. ^& echo --- node --- ^& where node ^& node -v
+>>"%DOCTOR%" echo echo. ^& echo --- git ---  ^& where git ^& git --version
+>>"%DOCTOR%" echo echo. ^& echo --- claude --- ^& where claude ^& claude --version
+>>"%DOCTOR%" echo echo. ^& echo --- install log ---
+>>"%DOCTOR%" echo type "%%APPDATA%%\ClaudeInstaller\install.log"
+call :log "Doctor helper at %DOCTOR%"
+
 call :log "==== Postinstall finished OK ===="
 exit /b 0
 

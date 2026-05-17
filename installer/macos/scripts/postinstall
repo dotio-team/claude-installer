@@ -215,7 +215,44 @@ if ! smoke_test; then
   esac
 fi
 
-# --- 6. Drop an uninstall helper -------------------------------------------
+# --- 5b. Make sure /usr/local/bin is on the user's PATH --------------------
+# `claude` is installed to /usr/local/bin/claude, but a fresh macOS user may
+# not have /usr/local/bin in their PATH (default zsh on Apple Silicon does,
+# but custom .zshrc edits or older setups sometimes miss it). We append a
+# guarded block to the GUI user's shell rc files so "open new terminal, run
+# claude" just works.
+ensure_path() {
+  local user="$1" rcfile="$2"
+  [ -n "$user" ] && [ -n "$rcfile" ] || return 0
+  # Only append if (a) the file is writable and (b) we haven't already.
+  if [ -f "$rcfile" ] && grep -q 'claude-installer:PATH' "$rcfile" 2>/dev/null; then
+    return 0
+  fi
+  /usr/bin/sudo -u "$user" /bin/bash -c "cat >> '$rcfile' <<'EOF'
+
+# claude-installer:PATH — added by Claude Code installer (do not remove the marker)
+export PATH=\"/usr/local/bin:\$PATH\"
+EOF" 2>/dev/null && log "ensured PATH in $rcfile"
+}
+if [ -n "${GUI_USER:-}" ] && [ "$GUI_USER" != "root" ]; then
+  GUI_HOME="$(dscl . -read /Users/"$GUI_USER" NFSHomeDirectory 2>/dev/null | awk '{print $2}')"
+  [ -z "$GUI_HOME" ] && GUI_HOME="/Users/$GUI_USER"
+  ensure_path "$GUI_USER" "$GUI_HOME/.zshrc"
+  ensure_path "$GUI_USER" "$GUI_HOME/.bash_profile"
+fi
+
+# --- 5c. Detect Node version conflicts --------------------------------------
+# If the user has multiple `node` binaries on PATH (nvm + brew + our
+# /usr/local), the wrong one can shadow ours and break claude at runtime.
+# We don't try to fix it — just leave a clear note in the log for support.
+NODE_COUNT="$(which -a node 2>/dev/null | sort -u | wc -l | tr -d ' ')"
+if [ "${NODE_COUNT:-0}" -gt 1 ]; then
+  log "Multiple Node installations detected:"
+  which -a node 2>/dev/null | sort -u | while read -r np; do log "  - $np ($($np -v 2>/dev/null))"; done
+  log "claude will use whichever appears first on PATH. If issues arise, run claude-doctor."
+fi
+
+# --- 6. Drop helper scripts (uninstall + doctor) ---------------------------
 UNINSTALL="/usr/local/bin/claude-uninstall"
 cat > "$UNINSTALL" <<'EOF'
 #!/bin/bash
@@ -227,11 +264,51 @@ if [ "${1:-}" = "--purge" ]; then
   rm -rf "$HOME/.claude"
   echo "설정 파일까지 모두 제거했습니다."
 fi
-rm -f /usr/local/bin/claude-uninstall
+rm -f /usr/local/bin/claude-uninstall /usr/local/bin/claude-doctor
 echo "제거가 완료되었습니다."
 EOF
 chmod 0755 "$UNINSTALL" 2>/dev/null || true
-ok "Uninstall helper installed at $UNINSTALL"
+
+# claude-doctor — pasteable diagnostic. When a user reports "안 돼요",
+# the support workflow is "터미널에 claude-doctor 치고 결과 복사해서 보내주세요".
+DOCTOR="/usr/local/bin/claude-doctor"
+cat > "$DOCTOR" <<'EOF'
+#!/bin/bash
+# Diagnostic snapshot for the Claude Code installation.
+# Paste the entire output to admin@dotio.team if something's wrong.
+echo "===== claude-doctor =====  $(date '+%Y-%m-%d %H:%M:%S')"
+echo "macOS:    $(sw_vers -productVersion 2>/dev/null)  ($(uname -m))"
+echo "Shell:    $SHELL"
+echo "User:     $USER  HOME=$HOME"
+echo
+echo "--- PATH ---"
+echo "$PATH" | tr ':' '\n' | sed 's/^/  /'
+echo
+echo "--- node ---"
+which -a node 2>/dev/null | sed 's/^/  /'
+node -v 2>/dev/null | sed 's/^/  version: /' || echo "  (node not on PATH)"
+echo
+echo "--- npm prefix ---"
+npm config get prefix 2>/dev/null | sed 's/^/  /' || echo "  (npm not available)"
+echo
+echo "--- git ---"
+which git 2>/dev/null | sed 's/^/  /' || echo "  (git not installed — run: xcode-select --install)"
+git --version 2>/dev/null | sed 's/^/  /'
+echo
+echo "--- claude ---"
+which -a claude 2>/dev/null | sed 's/^/  /' || echo "  (claude not on PATH)"
+echo "  --version output:"
+claude --version 2>&1 | sed 's/^/    /'
+echo
+echo "--- installed package ---"
+npm ls -g --depth=0 @anthropic-ai/claude-code 2>&1 | sed 's/^/  /'
+echo
+echo "--- last 20 lines of installer log ---"
+tail -20 "$HOME/Library/Logs/ClaudeInstaller/install.log" 2>/dev/null | sed 's/^/  /' || echo "  (no installer log)"
+echo "===== end ====="
+EOF
+chmod 0755 "$DOCTOR" 2>/dev/null || true
+ok "Helpers installed: claude-uninstall, claude-doctor"
 
 # --- 7. Fallback note if user chose to skip the CLT install ----------------
 if [ "${GIT_AVAILABLE}" = "false" ]; then

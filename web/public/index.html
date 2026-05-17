@@ -1347,6 +1347,27 @@ const DOWNLOADS = {
   else if (/Mac/i.test(ua) || /Mac/i.test(plat)) os = 'mac';
   else if (/Linux|X11|Ubuntu/i.test(ua)) os = 'other';
 
+  // macOS version sniff. UA reports "Mac OS X 10_15_7" up through Big Sur,
+  // then "Mac OS X 13_x_x", etc. We only block when we can confidently say
+  // it's < 13 (Ventura) — anything we can't parse, we let through.
+  if (os === 'mac') {
+    const m = ua.match(/Mac OS X (\d+)[_\.](\d+)/);
+    if (m) {
+      const major = +m[1], minor = +m[2];
+      const real = major === 10 ? minor : major;  // 10.15 = Catalina, 11+ = real major
+      if (real < 13) {
+        const hint = document.getElementById('hero-os-hint');
+        if (hint) {
+          hint.innerHTML = '⚠ <b>macOS ' + real + '</b> 사용 중 — 이 인스톨러는 macOS 13(Ventura) 이상에서만 동작합니다.';
+          hint.style.color = 'var(--warning)';
+        }
+        // Disable the download CTA so the user doesn't waste a download.
+        const btn = document.getElementById('download-btn');
+        if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; }
+      }
+    }
+  }
+
   const label = document.getElementById('download-label');
   const stickyLabel = document.getElementById('sticky-download-label');
   const hint = document.getElementById('hero-os-hint');
