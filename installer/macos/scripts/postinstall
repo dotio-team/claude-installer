@@ -76,21 +76,22 @@ if $need_node; then
   ok "Node.js installed: $(node -v 2>/dev/null || echo unknown)"
 fi
 
-# --- 2. Git -----------------------------------------------------------------
-# Git is shipped with Xcode Command Line Tools. On a fresh Mac it's missing
-# and trying `git --version` opens a system prompt to install CLT. We hide
-# behind a check rather than triggering that prompt during a .pkg install,
-# which would look broken.
+# --- 2. Git (optional — warn but don't block) -------------------------------
+# Git is shipped with Xcode Command Line Tools. Claude Code itself doesn't
+# need git to install (npm package is published, no git: dependencies), but
+# many real-world workflows want it. So we DON'T fail when it's missing —
+# we just record a warning and surface a friendly note at the end so the
+# user knows to install CLT later when they need git-aware features.
+GIT_AVAILABLE=true
 if ! /usr/bin/xcode-select -p >/dev/null 2>&1; then
-  log "Xcode Command Line Tools missing — Git is unavailable."
-  /usr/bin/osascript -e 'display dialog "Claude Code 동작에 필요한 Git이 설치되어 있지 않습니다.\n\n시스템 창이 곧 뜨면 \"설치\"를 눌러 Xcode Command Line Tools를 설치해주세요. (약 1~2분)\n\n설치가 끝난 뒤 다시 이 인스톨러를 실행하면 자동으로 이어집니다." buttons {"알겠습니다"} default button 1 with icon note with title "Claude Code 인스톨러"' >/dev/null 2>&1 || true
-  /usr/bin/xcode-select --install >/dev/null 2>&1 || true
-  fail "Xcode Command Line Tools 설치를 먼저 완료해주세요."
+  log "Xcode Command Line Tools missing — Git is unavailable. Continuing without it."
+  GIT_AVAILABLE=false
+elif ! command -v git >/dev/null 2>&1; then
+  log "Xcode CLT present but git not on PATH — continuing without git."
+  GIT_AVAILABLE=false
+else
+  ok "Git $(git --version 2>/dev/null | awk '{print $3}') detected"
 fi
-if ! command -v git >/dev/null 2>&1; then
-  fail "Git이 설치되어 있지 않습니다. (Xcode CLT는 있는데 git이 없음)"
-fi
-ok "Git $(git --version 2>/dev/null | awk '{print $3}') detected"
 
 # --- 3. Korean username heads-up -------------------------------------------
 # npm global install path uses ~/.npm cache. On macOS, non-ASCII characters
@@ -163,6 +164,11 @@ echo "제거가 완료되었습니다."
 EOF
 chmod 0755 "$UNINSTALL" 2>/dev/null || true
 ok "Uninstall helper installed at $UNINSTALL"
+
+# --- 7. Optional: surface git-missing notice at the very end ---------------
+if [ "${GIT_AVAILABLE}" = "false" ]; then
+  /usr/bin/osascript -e 'display dialog "Claude Code 설치는 끝났습니다.\n\n다만 이 컴퓨터에 Git이 없어, 나중에 Claude Code로 git 저장소 관련 작업을 하실 때 한 번 더 설치를 안내받게 됩니다.\n\n미리 깔아두시려면 터미널에서 다음을 실행하세요:\n  xcode-select --install\n\n지금은 그냥 사용하셔도 됩니다." buttons {"알겠습니다"} default button 1 with icon note with title "Claude Code 인스톨러"' >/dev/null 2>&1 || true
+fi
 
 log "==== Installer finished successfully ===="
 exit 0
