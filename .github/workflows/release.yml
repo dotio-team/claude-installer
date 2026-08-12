@@ -103,6 +103,29 @@ jobs:
             type "%APPDATA%\ClaudeInstaller\install.log" 2>nul
             exit /b 1
           )
+      - name: Verify claude works in a fresh PowerShell (registry PATH, Restricted policy)
+        shell: powershell
+        run: |
+          # Rebuild PATH the way a newly opened terminal would: from the
+          # registry only, no inherited process PATH. This is what real users
+          # hit right after install — the cmd step above can't catch
+          # persistence bugs because it injects the paths by hand.
+          $machine = [Environment]::GetEnvironmentVariable('Path', 'Machine')
+          $user = [Environment]::GetEnvironmentVariable('Path', 'User')
+          $env:Path = [Environment]::ExpandEnvironmentVariables("$machine;$user")
+          where.exe claude
+          if (Test-Path "$env:APPDATA\npm\claude.ps1") {
+            Write-Error 'claude.ps1 shim still present - PowerShell would hit the execution-policy wall'
+            exit 1
+          }
+          # Simulate the Windows client default policy; claude must still run.
+          powershell -NoProfile -ExecutionPolicy Restricted -Command "claude --version" > ps-out.txt 2>&1
+          Get-Content ps-out.txt
+          if (-not (Select-String -Path ps-out.txt -Pattern '\d+\.\d+\.\d+' -Quiet)) {
+            Write-Error 'claude --version failed in a Restricted-policy PowerShell'
+            Get-Content "$env:APPDATA\ClaudeInstaller\install.log" -ErrorAction SilentlyContinue
+            exit 1
+          }
 
   # --- Publish to GitHub Releases ----------------------------------------
   publish:

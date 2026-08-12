@@ -54,8 +54,9 @@ DisableWelcomePage=no
 Name: "korean"; MessagesFile: "compiler:Languages\Korean.isl"
 
 [Files]
-; Pure runtime files: the post-install batch + uninstall helper.
+; Pure runtime files: the post-install batch + PATH helper + uninstall helper.
 Source: "resources\postinstall.cmd"; DestDir: "{app}"; Flags: ignoreversion
+Source: "resources\ensure-path.ps1"; DestDir: "{app}"; Flags: ignoreversion
 Source: "resources\claude-uninstall.cmd"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
