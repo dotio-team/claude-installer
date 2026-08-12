@@ -113,8 +113,18 @@ jobs:
           $machine = [Environment]::GetEnvironmentVariable('Path', 'Machine')
           $user = [Environment]::GetEnvironmentVariable('Path', 'User')
           $env:Path = [Environment]::ExpandEnvironmentVariables("$machine;$user")
-          where.exe claude
-          if (Test-Path "$env:APPDATA\npm\claude.ps1") {
+          $claudePath = where.exe claude 2>$null | Select-Object -First 1
+          if (-not $claudePath) {
+            Write-Error 'claude not found on the registry-built PATH'
+            Get-Content "$env:APPDATA\ClaudeInstaller\install.log" -ErrorAction SilentlyContinue
+            exit 1
+          }
+          Write-Output "claude resolved at: $claudePath"
+          # The shim dir is wherever claude actually landed (npm prefix is
+          # preconfigured to C:\npm\prefix on GitHub runners, %APPDATA%\npm
+          # on real machines) - claude.ps1 must be gone from there.
+          $shimDir = Split-Path $claudePath
+          if (Test-Path (Join-Path $shimDir 'claude.ps1')) {
             Write-Error 'claude.ps1 shim still present - PowerShell would hit the execution-policy wall'
             exit 1
           }

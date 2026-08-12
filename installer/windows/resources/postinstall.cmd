@@ -74,6 +74,14 @@ if errorlevel 1 (
   exit /b 1
 )
 
+:: Resolve where npm actually put the shims. Don't assume %APPDATA%\npm:
+:: the prefix moves with `npm config set prefix` (our Korean-username path
+:: above), and some environments (GitHub runners, corp images) preconfigure
+:: a machine-wide prefix like C:\npm\prefix.
+for /f "delims=" %%p in ('npm prefix -g 2^>nul') do set "NPM_BIN=%%p"
+call :log "npm global prefix: !NPM_BIN!"
+set "PATH=!PATH!;!NPM_BIN!"
+
 :: --- 5. Smoke test + one auto-repair attempt -------------------------------
 call :smoke
 if !SMOKE_OK!==1 goto :smoke_done
@@ -132,6 +140,12 @@ if errorlevel 1 (
 if exist "!NPM_BIN!\claude.ps1" (
   del /f /q "!NPM_BIN!\claude.ps1" >nul 2>&1
   call :log "Removed claude.ps1 shim (PowerShell now resolves claude.cmd)"
+)
+:: Belt and suspenders: also clear the default location in case the prefix
+:: moved after an earlier install left a stale shim there.
+if exist "%APPDATA%\npm\claude.ps1" (
+  del /f /q "%APPDATA%\npm\claude.ps1" >nul 2>&1
+  call :log "Removed stale claude.ps1 shim at %APPDATA%\npm"
 )
 set "PS_POLICY="
 for /f "delims=" %%p in ('powershell -NoProfile -Command "Get-ExecutionPolicy" 2^>nul') do set "PS_POLICY=%%p"
